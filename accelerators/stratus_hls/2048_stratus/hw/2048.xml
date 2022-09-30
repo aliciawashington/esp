@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sld>
+  <accelerator name="2048" desc="Accelerator 2048" data_size="4" device_id="36a" hls_tool="stratus_hls">
+    <param name="board" desc="board" />
+    <param name="row" desc="row" />
+  </accelerator>
+</sld>
