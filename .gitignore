@@ -3,6 +3,7 @@ tmp
 *.a
 *.swp
 *~
+.vscode
 __pycache__
 _leon3_build
 _riscv_build
