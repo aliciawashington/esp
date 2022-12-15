@@ -15,6 +15,8 @@
 typedef sc_uint<64> board_t;
 typedef sc_uint<16> row_t;
 
+typedef sc_int<> (*get_move_func_t)(board_t);
+
 board_t ROW_MASK = 0xFFFFULL;
 board_t COL_MASK = 0x000F000F000F000FULL;
 

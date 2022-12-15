@@ -55,6 +55,11 @@ public:
     esp_config_proc cfg;
 
     // Functions
+    void init_tables();
+    float score_toplevel_move(board_t board, int move);
+    int find_best_move(board_t board);
+    int ask_for_move(board_t board);
+    void play_game(get_move_func_t get_move);
 
     // Private local memories
     sc_dt::sc_int<DATA_WIDTH> plm_in_ping[PLM_IN_WORD];
