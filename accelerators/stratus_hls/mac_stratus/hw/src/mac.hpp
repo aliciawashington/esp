@@ -14,7 +14,8 @@
 #define __round_mask(x, y) ((y)-1)
 #define round_up(x, y) ((((x)-1) | __round_mask(x, y))+1)
 /* <<--defines-->> */
-#define DATA_WIDTH 32
+//#define DATA_WIDTH 32
+#define DATA_WIDTH 64
 #define DMA_SIZE SIZE_WORD
 #define PLM_OUT_WORD 100
 #define PLM_IN_WORD 6400

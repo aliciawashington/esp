@@ -12,6 +12,11 @@
 #ifndef mac_conf_t_SC_WRAPPER_TYPE
 #define mac_conf_t_SC_WRAPPER_TYPE 1
 
+typedef sc_uint<64> board_t;
+typedef sc_uint<16> row_t;
+
+board_t ROW_MASK = 0xFFFFULL;
+board_t COL_MASK = 0x000F000F000F000FULL;
 
 struct trans_table_entry_t{
     uint8_t depth;
