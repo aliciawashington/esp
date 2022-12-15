@@ -300,9 +300,9 @@ void mac::compute_kernel()
         for (uint16_t b = 0; b < mac_n; b++)
         {
             uint32_t in_length = mac_len * mac_vec;
-	    uint32_t vector_index = 0;
-	    uint32_t vector_number = 0;
-	    int32_t acc = 0;
+	        uint32_t vector_index = 0;
+	        uint32_t vector_number = 0;
+	        int32_t acc = 0;
 
             for (int in_rem = in_length; in_rem > 0; in_rem -= PLM_IN_WORD)
             {
@@ -314,20 +314,20 @@ void mac::compute_kernel()
                 // Computing phase implementation
                 for (int i = 0; i < in_len; i+=2) {
                     if (ping)
-			acc += plm_in_ping[i] * plm_in_ping[i +1];
+			            acc += plm_in_ping[i] * plm_in_ping[i +1];
                     else
-			acc += plm_in_pong[i] * plm_in_pong[i +1];
-		    vector_index += 2;
-		    //Write the accumulated result
-		    if (vector_index == mac_len) { 
-			if (out_ping)
-			    plm_out_ping[vector_number] = acc;
-			else
-			    plm_out_pong[vector_number] = acc;
-			acc = 0;
-			vector_index = 0;
-			vector_number++;
-		    }
+			            acc += plm_in_pong[i] * plm_in_pong[i +1];
+		            vector_index += 2;
+                    //Write the accumulated result
+                    if (vector_index == mac_len) { 
+                    if (out_ping)
+                        plm_out_ping[vector_number] = acc;
+                    else
+                        plm_out_pong[vector_number] = acc;
+                    acc = 0;
+                    vector_index = 0;
+                    vector_number++;
+		            }
                 }
 
                 ping = !ping;

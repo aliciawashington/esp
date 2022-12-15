@@ -55,11 +55,25 @@ public:
     esp_config_proc cfg;
 
     // Functions
+    
+    //initialize the game board
     void init_tables();
+
+    float score_heur_board(board_t board);
+    // score a single board actually (adding in the score from spawned 4 tiles)
+    float score_board(board_t board);
+    // score over all possible moves
+    float score_move_node(eval_state &state, board_t board, float cprob);
+    // score over all possible tile choices and placements
+    float score_tilechoose_node(eval_state &state, board_t board, float cprob);
+
+
     float score_toplevel_move(board_t board, int move);
     int find_best_move(board_t board);
     int ask_for_move(board_t board);
     void play_game(get_move_func_t get_move);
+
+
 
     // Private local memories
     sc_dt::sc_int<DATA_WIDTH> plm_in_ping[PLM_IN_WORD];

@@ -15,10 +15,12 @@
 typedef sc_uint<64> board_t;
 typedef sc_uint<16> row_t;
 
-typedef sc_int<> (*get_move_func_t)(board_t);
+typedef int (*get_move_func_t)(board_t);
 
-board_t ROW_MASK = 0xFFFFULL;
-board_t COL_MASK = 0x000F000F000F000FULL;
+typedef std::unordered_map<board_t, trans_table_entry_t> trans_table_t;
+
+const board_t ROW_MASK = 0xFFFFULL;
+const board_t COL_MASK = 0x000F000F000F000FULL;
 
 struct trans_table_entry_t{
     uint8_t depth;
@@ -65,6 +67,92 @@ struct trans_table_entry_t{
     
 };
 
-#endif // trans_table_entry_t_SC_WRAPPER_TYPE
+struct eval_state {
+    trans_table_t trans_table; // transposition table, to cache previously-seen moves
+    int maxdepth;
+    int curdepth;
+    int cachehits;
+    unsigned long moves_evaled;
+    int depth_limit;
 
-#endif // __CONV_LAYER_DATATYPES_H__
+    eval_state() : maxdepth(0), curdepth(0), cachehits(0), moves_evaled(0), depth_limit(0) {
+    }
+
+    eval_state() {}
+
+    eval_state(const eval_state &other)
+    {
+        trans_table = other.trans_table;
+        maxdepth = other.maxdepth;
+        curdepth = other.curdepth;
+        cachehits = other.cachehits;
+        moves_evaled = other.moves_evaled;
+        depth_limit = other.depth_limit;
+    }
+
+    eval_state(trans_table_t trans_table_in, int maxdepth_in, int curdepth_in, int cachehits_in, unsigned long moves_evaled_in, int depth_limit_in)
+    {
+        trans_table = trans_table_in;
+        maxdepth = maxdepth_in;
+        curdepth = curdepth_in;
+        cachehits = cachehits_in;
+        moves_evaled = moves_evaled_in;
+        depth_limit = depth_limit_in;
+    }
+
+    inline bool operator==(const eval_state &other)
+    {
+        if (trans_table != other.trans_table)
+            return false;
+        if (maxdepth != other.maxdepth)
+            return false;
+        if (curdepth != other.curdepth)
+            return false;
+        if (cachehits != other.cachehits)
+            return false;
+        if (moves_evaled != other.moves_evaled)
+            return false;
+        if (depth_limit != other.depth_limit)
+            return false;
+        return true
+    }
+
+    inline eval_state &operator=(const eval_state &other)
+    {
+        trans_table = other.trans_table;
+        maxdepth = other.maxdepth;
+        curdepth = other.curdepth;
+        cachehits = other.cachehits;
+        moves_evaled = other.moves_evaled;
+        depth_limit = other.depth_limit;
+        return *this;
+    }
+
+    friend void sc_trace(sc_trace_file *tf, const eval_state &object, const std::string &in_name)
+    {
+        sc_trace(tf, object.trans_table, in_name + std::string(".trans_table"));
+        sc_trace(tf, object.maxdepth, in_name + std::string(".maxdepth"));
+        sc_trace(tf, object.curdepth, in_name + std::string(".curdepth"));
+        sc_trace(tf, object.cachehits, in_name + std::string(".cachehits"));
+        sc_trace(tf, object.moves_evaled, in_name + std::string(".moves_evaled"));
+        sc_trace(tf, object.depth_limit, in_name + std::string(".depth_limit"));
+    }
+
+    friend ostream &operator<<(ostream &os, const eval_state &object)
+    {
+        os << "( ";
+        os << object.trans_table << " ";
+        os << object.maxdepth << " ";
+        os << object.curdepth << " ";
+        os << object.cachehits << " ";
+        os << object.moves_evaled << " ";
+        os << object.depth_limit << " ";
+        os << ")";
+        return os;
+    }
+};
+
+
+#endif // mac_conf_t_SC_WRAPPER_TYPE
+
+#endif // __MAC_DATATYPES_H__
