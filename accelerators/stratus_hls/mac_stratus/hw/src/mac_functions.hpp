@@ -1,8 +1,39 @@
 // Copyright (c) 2011-2021 Columbia University, System Level Design Group
 // SPDX-License-Identifier: Apache-2.0
+#include <ctype.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <algorithm>
 
 #include "mac.hpp"
 #include "mac_datatypes.hpp"
+
+//Constants
+static row_t row_left_table [65536];
+static row_t row_right_table[65536];
+static board_t col_up_table[65536];
+static board_t col_down_table[65536];
+static float heur_score_table[65536];
+static float score_table[65536];
+
+// Heuristic scoring settings
+static const float SCORE_LOST_PENALTY = 200000.0f;
+static const float SCORE_MONOTONICITY_POWER = 4.0f;
+static const float SCORE_MONOTONICITY_WEIGHT = 47.0f;
+static const float SCORE_SUM_POWER = 3.5f;
+static const float SCORE_SUM_WEIGHT = 11.0f;
+static const float SCORE_MERGES_WEIGHT = 700.0f;
+static const float SCORE_EMPTY_WEIGHT = 270.0f;
+
+// Statistics and controls
+// cprob: cumulative probability
+// don't recurse into a node with a cprob less than this threshold
+static const float CPROB_THRESH_BASE = 0.0001f;
+static const int CACHE_DEPTH_LIMIT  = 15;
 
 // Optional application-specific helper functions
 inline void print_board(board_t board) {
@@ -205,7 +236,93 @@ inline void mac::init_tables() {
     }
 }
 
-float _score_toplevel_move(eval_state &state, board_t board, int move) {
+
+float score_helper(board_t board, const float* table) {
+    return table[(board >>  0) & ROW_MASK] +
+           table[(board >> 16) & ROW_MASK] +
+           table[(board >> 32) & ROW_MASK] +
+           table[(board >> 48) & ROW_MASK];
+}
+
+float score_heur_board(board_t board) {
+    return score_helper(          board , heur_score_table) +
+           score_helper(transpose(board), heur_score_table);
+}
+// score a single board actually (adding in the score from spawned 4 tiles)
+float mac::score_board(board_t board) {
+    return score_helper(board, score_table);
+}
+
+// score over all possible moves
+float mac::score_move_node(eval_state &state, board_t board, float cprob) {
+    float best = 0.0f;
+    state.curdepth++;
+    for (int move = 0; move < 4; ++move) {
+        board_t newboard = execute_move(move, board);
+        state.moves_evaled++;
+
+        if (board != newboard) {
+            best = std::max(best, score_tilechoose_node(state, newboard, cprob));
+        }
+    }
+    state.curdepth--;
+
+    return best;
+}
+
+// score over all possible tile choices and placements
+float mac::score_tilechoose_node(eval_state &state, board_t board, float cprob) {
+    if (cprob < CPROB_THRESH_BASE || state.curdepth >= state.depth_limit) {
+        state.maxdepth = std::max(state.curdepth, state.maxdepth);
+        return score_heur_board(board);
+    }
+    if (state.curdepth < CACHE_DEPTH_LIMIT) {
+        const trans_table_t::iterator &i = state.trans_table.find(board);
+        if (i != state.trans_table.end()) {
+            trans_table_entry_t entry = i->second;
+            /*
+            return heuristic from transposition table only if it means that
+            the node will have been evaluated to a minimum depth of state.depth_limit.
+            This will result in slightly fewer cache hits, but should not impact the
+            strength of the ai negatively.
+            */
+            if(entry.depth <= state.curdepth)
+            {
+                state.cachehits++;
+                return entry.heuristic;
+            }
+        }
+    }
+
+    int num_open = count_empty(board);
+    //cprob = cprob / num_open;
+    cprob /= num_open;
+
+    float res = 0.0f;
+    board_t tmp = board;
+    board_t tile_2 = 1;
+    while (tile_2) {
+        if ((tmp & 0xf) == 0) {
+            //res = res+ score_move_node(state, board |  tile_2      , cprob * 0.9f) * 0.9f;
+            res += score_move_node(state, board |  tile_2      , cprob * 0.9f) * 0.9f;
+            res += score_move_node(state, board | (tile_2 << 1), cprob * 0.1f) * 0.1f;
+        }
+        tmp >>= 4;
+        tile_2 <<= 4;
+    }
+    res = res / num_open;
+
+    if (state.curdepth < CACHE_DEPTH_LIMIT) {
+        trans_table_entry_t entry = {static_cast<uint8_t>(state.curdepth), res};
+        state.trans_table[board] = entry;
+    }
+
+    return res;
+}
+
+
+//This might not be static, static-cannot be used outside of this context
+static float _score_toplevel_move(eval_state &state, board_t board, int move) {
     board_t newboard = execute_move(move, board);
 
     if(board == newboard)
@@ -303,7 +420,7 @@ inline void mac::play_game(get_move_func_t get_move) {
         if(move == 4)
             break; // no legal moves
 
-        printf("\nMove #%d, current score=%.0f\n", ++moveno, score_board(board) - scorepenalty);
+        //printf("\nMove #%d, current score=%.0f\n", ++moveno, score_board(board) - scorepenalty);
 
         move = get_move(board);
         if(move < 0)
@@ -322,7 +439,7 @@ inline void mac::play_game(get_move_func_t get_move) {
     }
 
     print_board(board);
-    printf("\nGame over. Your score is %.0f. The highest rank you achieved was %d.\n", score_board(board) - scorepenalty, get_max_rank(board));
+    //printf("\nGame over. Your score is %.0f. The highest rank you achieved was %d.\n", score_board(board) - scorepenalty, get_max_rank(board));
 }
 
 board_t draw_tile() {
@@ -350,6 +467,11 @@ board_t initial_board() {
     return insert_tile_rand(board, draw_tile());
 }
 
+// Transpose rows/columns in a board:
+//   0123       048c
+//   4567  -->  159d
+//   89ab       26ae
+//   cdef       37bf
 inline board_t transpose(board_t x)
 {
     board_t a1 = x & 0xF0F00F0FF0F00F0FULL;
@@ -362,6 +484,8 @@ inline board_t transpose(board_t x)
     return b1 | (b2 >> 24) | (b3 << 24);
 }
 
+// Count the number of empty positions (= zero nibbles) in a board.
+// Precondition: the board cannot be fully empty.
 int count_empty(board_t x)
 {
     x |= (x >> 2) & 0x3333333333333333ULL;
